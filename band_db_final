@@ -1,0 +1,137 @@
+-- Comprehensive final project from SQL unit. Includes data from band_db database completed in MySQL on 04-16-2022 by Alyson Nerenhausen.
+-- Includes application of intro/advanced SQL functions (JOIN, CREATE VIEW, IFNULL, aggregates, SPROC, DELETE, UPDATE, INSERT INTO, aliases, etc)
+
+-- Before a band releases a new record, Drop Table Records will work to promote the band and get fans excited for the new record.
+-- Write a query that shows bands & their respective albums’ release date in descending order.
+
+SELECT b.bandname, a.albumname, a.releasedate
+FROM band b
+INNER JOIN album a ON b.idband = a.idband
+ORDER BY a.releasedate desc
+
+-- Drop Table Records also sends bands to play at different venues or events.
+-- Some venues request bands that feature certain instruments. Write a query that shows all of the players that utilize drums along 
+-- with the bands that they are a part of. You should only have one column that shows the full player name 
+
+SELECT CONCAT(player.pfname, ' ' , player.plname) player_full_name, instrument.instrument
+, band.bandname
+FROM player
+JOIN instrument ON player.instid = instrument.instid
+JOIN band ON player.idband = band.idband
+WHERE instrument.instrument = "Drums"
+
+-- It is important that Drop Table Records has a diversity of different bands signed to its label. We want many artists who represent different 
+-- styles of music.
+-- One way we determine the diversity in music is by looking at how many bands feature a certain instrument. 
+-- Write a query that describes the number of instruments used by each band. (Hint: some bands may have multiple players using the same instrument.)
+
+SELECT b.bandname, count(distinct p.InstID) num_unique_instruments
+FROM band b
+JOIN player p ON b.idband = p.idband
+GROUP BY b.bandname
+
+-- Write a query that lists the most popular instrument amongst the players.
+
+SELECT count(player.InstID), instrument.instrument
+FROM player
+JOIN instrument ON player.InstID = instrument.InstID
+GROUP BY player.InstID
+ORDER BY count(player.InstID) desc
+LIMIT 1
+
+-- Write a query that lists any albums that have a missing name and/or missing release dates.
+
+SELECT a.releasedate, a.albumname
+FROM album a
+WHERE a.releasedate is null OR a.albumname is null
+
+-- We need to add more bands to the band table
+
+INSERT INTO band
+values (null, 1, "Weezer")
+, (null, 1, "TLC")
+, (null, 1, "Paramore")
+, (null, 1, "Blackpink")
+, (null, 1, "Vampire Weekend")
+
+-- Add given data to existing table
+
+INSERT INTO player
+values
+(null, 3, 22, "Rivers", "Cuomo", "Rochester", "New York")
+, (null, 1, 22, "Brian", "Bell", "Iowa City", "Iowa")
+, (null, 4, 22, "Patrick", "Wilson", "Buffalo", "New York")
+, (null, 2, 22, "Scott", "Shriner", "Toledo", "Ohio")
+, (null, 3, 23, "Tionne", "Watkins", "Des Moines", "Iowa")
+, (null, 3, 23, "Rozonda", "Thomas", "Columbus", "Georgia")
+, (null, 3, 24, "Hayley", "Williams", "Franklin", "Tennessee")
+, (null, 1, 24, "Taylor", "York", "Nashville", "Tennessee")
+, (null, 4, 24, "Zac", "Farro", "Voorhees Township", "New Jersey")
+, (null, 3, 25, "Jisoo", "Kim", null, "South Korea")
+, (null, 3, 25, "Jennie", "Kim", null, "South Korea")
+, (null, 3, 25, "Roseanne", "Park", null, "New Zealand")
+, (null, 3, 25, "Lisa", "Manoban", null, "Thailand")
+, (null, 3, 26, "Ezra", "Koenig", "New York", "New York")
+, (null, 2, 26, "Chris", "Baio", "Bronxville", "New York")
+, (null, 4, 26, "Chris", "Tomson", "Upper Freehold Township", "New Jersey")
+
+-- Add a new venue with given data to existing table
+
+INSERT INTO venue
+values
+(null, "Twin City Rock House", "Minneapolis", "MN", 55414, 2000)
+
+-- Which state has the largest amount of seating available?
+
+SELECT v.state, SUM(seats) as total_seats 
+FROM venue v
+GROUP BY v.state
+ORDER BY total_seats desc
+
+-- Are any of the venues oversold?
+
+SELECT v.vname, v.seats, g.numattendees
+FROM venue v
+JOIN gig g ON v.idvenue = g.idvenue
+WHERE v.seats < g.numattendees
+
+-- We just got word that Vampire Weekend can expect 1,750 guests. Write a query to update the table accordingly.
+
+UPDATE gig g
+set g.numattendees = 1750
+WHERE g.gigid = 2
+
+-- Create a view (called vw_giginfo) that will show the band, the dates they will play, 
+-- the venue they will play at, the number of attendees, and the venue capacity. 
+-- For this view, also create a column that describes what percentage of the venue capacity was utilized.
+
+CREATE VIEW vw_giginfo as
+SELECT b.bandname, g.gigdate, v.vname, g.numattendees, v.seats
+, g.numattendees/v.seats *100 as venue_cap
+FROM band b
+JOIN gig g on b.idband = g.idband
+JOIN venue v on g.idvenue = v.idvenue
+GROUP BY bandname
+
+-- Create a stored procedure that lists all of the venues that can handle more than 10,000 guests.
+
+delimiter $$
+CREATE PROCEDURE big_venues()
+BEGIN
+SELECT v.vname, v.seats FROM venue v
+WHERE v.seats > 10000
+GROUP BY v.vname;
+end $$
+
+-- Create a stored procedure that lists all of the players that come from a specific state. 
+-- We want to see (once we run this stored procedure), what bands they are a part of, their full name (in one column), 
+-- and the state they are from
+
+delimiter $$
+CREATE PROCEDURE players_from_state(in state varchar(255))
+BEGIN
+SELECT band.bandname, concat(player.pfname, ' ', player.plname) full_name, player.homestate
+FROM player 
+JOIN band on band.idband = player.idband
+WHERE player.homestate = state;
+end $$
